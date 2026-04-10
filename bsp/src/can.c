@@ -119,3 +119,9 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *device, uint32_t RxFifo0ITs)
     default: break;
     }
 }
+
+void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *device, uint32_t itflags) {
+    if (itflags & FDCAN_IT_BUS_OFF) {
+        CLEAR_BIT(device->Instance->CCCR, FDCAN_CCCR_INIT);
+    }
+}

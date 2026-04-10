@@ -10,8 +10,23 @@
 extern "C" {
 #endif
 
+/**
+ * 初始化 usb
+ */
 void bsp_usb_init();
+
+/**
+ * 使用 usb cdc 发送
+ * @param data 待发送数据指针
+ * @param len 待发送数据长度
+ */
 void bsp_usb_cdc_send(const uint8_t *data, uint16_t len);
+
+/**
+ * 使用 usb cdc 打印
+ * @param fmt 格式化字符串
+ * @param ... 额外参数
+ */
 void bsp_usb_cdc_printf(const char *fmt, ...);
 
 #ifdef __cplusplus

@@ -21,8 +21,28 @@ extern "C" {
 #endif
 
 typedef void (*bsp_can_callback_t)(bsp_can_e device, uint32_t id, const uint8_t *data, size_t len);
+
+/**
+ * 初始化指定 can 外设
+ * @param device can 外设枚举类
+ */
 void bsp_can_init(bsp_can_e device);
+
+/**
+ * 注册 can 接收回调
+ * @param device can 外设枚举类
+ * @param id 要注册的 can id (0 <= id <= 0x7ff)
+ * @param func 回调函数
+ */
 void bsp_can_set_callback(bsp_can_e device, uint32_t id, bsp_can_callback_t func);
+
+/**
+ * 发送 can 包
+ * @param device can 外设枚举类
+ * @param id 要发送的 can id (0 <= id <= 0x7ff)
+ * @param data 要发送的数据指针，必须保证在发送完成前有效
+ * @param len 要发送的数据长度，若 > 8 则使用 canfd 发送
+ */
 void bsp_can_send(bsp_can_e device, uint32_t id, const uint8_t *data, uint8_t len);
 
 #ifdef __cplusplus

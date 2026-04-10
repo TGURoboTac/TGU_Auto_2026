@@ -24,7 +24,7 @@ uint64_t bsp_time_get_us() {
 }
 
 void bsp_time_delay(uint32_t ms) {
-    osDelay(ms);
+    vTaskDelay(ms);
 }
 
 void bsp_time_delay_us(uint32_t us) {

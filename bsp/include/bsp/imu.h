@@ -12,7 +12,15 @@ typedef struct {
 extern "C" {
 #endif
 
+/**
+ * 初始化板载 bmi088
+ */
 void bsp_imu_init();
+
+/**
+ * 读取 bmi088 数据
+ * @return 陀螺仪原始数据
+ */
 bsp_imu_data_t bsp_imu_read();
 
 #ifdef __cplusplus

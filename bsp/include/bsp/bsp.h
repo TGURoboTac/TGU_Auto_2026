@@ -8,7 +8,14 @@
 extern "C" {
 #endif
 
+/**
+ * bsp 硬件初始化
+ */
 void bsp_hw_init();
+
+/**
+ * 喂狗
+ */
 void bsp_iwdg_refresh();
 
 #ifdef __cplusplus

@@ -9,7 +9,15 @@
 extern "C" {
 #endif
 
+/**
+ * 初始化 ADC
+ */
 void bsp_adc_init(void);
+
+/**
+ * 获取 vbus 电压
+ * @return vbus 电压 (V)
+ */
 float bsp_adc_vbus(void);
 
 #ifdef __cplusplus

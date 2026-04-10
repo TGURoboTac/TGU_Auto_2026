@@ -8,6 +8,12 @@
 extern "C" {
 #endif
 
+/**
+ * 生成一个 [l, r] 区间内的随机数
+ * @param l 区间左端点
+ * @param r 区间右端点
+ * @return [l, r] 区间内的随机数
+ */
 int bsp_rng_random(int l, int r);
 
 #ifdef __cplusplus
