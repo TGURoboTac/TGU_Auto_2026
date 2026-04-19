@@ -12,7 +12,9 @@
 #include "rc/ht10.h"
 #include "utils/os.h"
 
-extern void example_task(void *args);
+extern void chassis_task(void *args);
+extern void lift_task(void *args);
+extern void servo_task(void *args);
 
 extern "C" [[noreturn]] void app_entrance(void *args) {
     bsp_hw_init();
@@ -21,7 +23,10 @@ extern "C" [[noreturn]] void app_entrance(void *args) {
     bsp_buzzer_flash(4500, 0.2f, 100);
     bsp_time_delay(100);
 
-    // Init Basic Components
+    HAL_GPIO_WritePin(POWER_5V_GPIO_Port, POWER_5V_Pin, GPIO_PIN_SET);
+    bsp_uart_set_baudrate(E_UART_10, 115200);
+    bsp_uart_set_baudrate(E_UART_7, 115200);
+    // Init Basic Components'
 
     // logger::init(E_UART_1, logger::INFO);
     // terminal::init(E_UART_1, 921600);
@@ -36,7 +41,9 @@ extern "C" [[noreturn]] void app_entrance(void *args) {
     bsp_buzzer_flash(4500, 0.2f, 75);
 
     // Init Application Tasks
-    os::task::static_create(example_task, nullptr, "example_task", 512, os::task::Priority::HIGH);
+    os::task::static_create(chassis_task, nullptr, "chassis", 1024, os::task::Priority::HIGH);
+    os::task::static_create(lift_task, nullptr, "lift", 1024, os::task::Priority::HIGH);
+    os::task::static_create(servo_task, nullptr, "servo", 256, os::task::Priority::HIGH);
 
     for (;;) {
         bsp_led_set_hsv(static_cast<float>(bsp_time_get_ms() % 3000) / 3000.0f, 1.0f, 0.3f);
