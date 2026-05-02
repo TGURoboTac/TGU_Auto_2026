@@ -10,6 +10,7 @@
 #include "utils/os.h"
 #include "utils/vofa.h"
 #include "def.h"
+#include "bsp/buzzer.h"
 // 控制红蓝方的开关
 #define SIDE_RED
 
@@ -21,24 +22,27 @@ typedef enum {
 // 每个路口de任务
 dir_t route[] = {
     E_TURN_NONE,    // 0（起点）
-    E_TURN_LEFT,    // 1
-    E_TURN_RIGHT,   // 2
-    E_TURN_LEFT,    // 3
-    E_TURN_RIGHT,   // 4
-    E_TURN_LEFT,    // 5
-    E_TURN_LEFT,    // 6
-    E_TURN_RIGHT    // 7
+    E_TURN_LEFT,    // 1 进入主路
+    E_TURN_RIGHT,   // 2 路口一进
+    E_TURN_LEFT,    // 3 路口一出
+    E_TURN_NONE,    // 4 路口二跳过
+    E_TURN_NONE,    // 5 路口三跳过
+    E_TURN_LEFT,    // 6 路口四进
+    E_TURN_LEFT,    // 7 路口四出->反
+    E_TURN_LEFT,    // 8 路口三进
+    E_TURN_RIGHT,   // 9 路口三出
+    E_TURN_LEFT,    // 10 路口二进
+    E_TURN_LEFT     // 11 路口二出 ->正
 };
 mode_t mode = E_MODE_TRAIL_F;
-
 
 motor::gyj m0("m0", {.id = 0x00,.port = E_CAN_1,.mode = motor::gyj::SPEED_LOOP,.have_feedback = true}, 1);
 motor::gyj m1("m1", {.id = 0x01,.port = E_CAN_1,.mode = motor::gyj::SPEED_LOOP,.have_feedback = false}, 1);
 motor::gyj m2("m2", {.id = 0x02,.port = E_CAN_1,.mode = motor::gyj::SPEED_LOOP,.have_feedback = false}, 1);
 motor::gyj m3("m3", {.id = 0x03,.port = E_CAN_1,.mode = motor::gyj::SPEED_LOOP,.have_feedback = false}, 1);
 
-controller::pid angle_pid(20, 1, 0, 5, 10);
-controller::pid trail_pid(2.5, 0, 0.1, 0, 8);
+controller::pid angle_pid(20, 1, 0, 5, 20);    // 转弯角速度环
+controller::pid trail_pid(2.5, 0, 0.1, 0, 8);  // 循迹纠偏
 
 constexpr float fpi = M_PI;
 constexpr float sqrt2f = M_SQRT2;
@@ -59,7 +63,6 @@ void set_speed(const float &vx, const float &vy, const float &rotate) {
     m1.update(rotate - vy * sqrt2f + vx * sqrt2f);
     m3.update(rotate + vy * sqrt2f - vx * sqrt2f);
 }
-
 void trail_mode(float &vx, float &vy, float &rotate) {
     float sum = 0; uint8_t cnt = 0; static uint8_t data_g;
 
@@ -77,10 +80,10 @@ void trail_mode(float &vx, float &vy, float &rotate) {
 
     vx = 0;
     if (mode == E_MODE_TRAIL_F) {
-        vy = 10; rotate = trail_pid.update(trail_err, 0.0f);
+        vy = 13; rotate = trail_pid.update(trail_err, 0.0f);
     }
     if (mode == E_MODE_TRAIL_B) {
-        vy = -10; rotate = -trail_pid.update(trail_err, 0.0f);
+        vy = -15; rotate = -trail_pid.update(trail_err, 0.0f);
     }
 }
 
@@ -131,8 +134,9 @@ void check_cross() {
 
     if (is_cross) {
         if (bsp_time_get_ms() - last_cross_time >1500 && ++cross_confirm > 3) {
+            cross_beep_req = true;
             last_cross_time = bsp_time_get_ms();
-            cross_count ++;
+            cross_count ++; //路口书更新处
             cross_confirm = 0;
         }
     }else cross_confirm = 0;
@@ -153,9 +157,8 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
             if (lift_done_time == 0) {
                 lift_done_time = bsp_time_get_ms();
             }
-            if (bsp_time_get_ms() - lift_done_time > 500) {
+            if (bsp_time_get_ms() - lift_done_time > 100) {
                 servo2_angle = target_servo2;
-                os::task::sleep(500);
                 servo1_angle = target_servo1;
                 act_start_time = bsp_time_get_ms();
                 lift_done_time = 0;
@@ -166,7 +169,7 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
 
     case ACT_SERVO:
         // 舵机没有反馈
-        if (bsp_time_get_ms() - act_start_time > 1500) {
+        if (bsp_time_get_ms() - act_start_time > 1000) {
             stage = ACT_READY; // 为下一次动作重置状态
             return true;       // 真正完成
         }
@@ -200,6 +203,8 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
     mode = E_MODE_TRAIL_F;
 
     while (true) {
+        //强制停止
+        if (cross_count >= 12) mode = E_MODE_DIED;
 
         bool front_ok = bsp_time_get_ms() - trail_timestamp_f < 100;
         bool back_ok  = bsp_time_get_ms() - trail_timestamp_b < 100;
@@ -220,14 +225,18 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
                     mode = E_MODE_FUCK_CROSS;         // 此状态中会判断并更新至 TURN 状态
                 }
             }
-            if (cross_count == 2 || cross_count == 4 || cross_count == 6) {
-                if (bsp_time_get_ms() - state_time > 900) {
+            // 进入分叉路口后前进的距离，由时间限制。进路口用
+            if (cross_count == 2 || cross_count == 6 || cross_count == 8 || cross_count == 10)
+                if (bsp_time_get_ms() - state_time > BRANCH_TIME) {
                     stage = ACT_READY;
                     mode = E_MODE_ACTION;
                 }
-            } else {
-                // 普通路口 继续巡线
+            // 在此添加在路口完成任务之前的高度和夹爪，只能在出路口时调用。
+            if (cross_count == 7) {
+                // lift_mode = E_HIGH; servo2_angle = SERVO_2_ROTATE;
+                gimbal_action(E_HIGH, SERVO_1_CLOSE, SERVO_2_ROTATE);
             }
+
             break;
 
         case E_MODE_TRAIL_B:
@@ -251,17 +260,22 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
             vx = 0; vy = 0; rotate = 0;
 
             if (cross_count == 2) {
-                if (gimbal_action(E_LOW, 110, 50)) { // 举例：升最高，抓取
+                if (gimbal_action(E_LOW, SERVO_1_OPEN, SERVO_2_NORMAL)) {
                     mode = E_MODE_TRAIL_B;        // 动作完直接切倒车
                 }
             }
-            else if (cross_count == 4) {
-                if (gimbal_action(E_LOW, 63, 50)) {   // 举例：放最低，松开
+            else if (cross_count == 6) {
+                if (gimbal_action(E_LOW, SERVO_1_CLOSE, SERVO_2_NORMAL)) {
                     mode = E_MODE_TRAIL_B;
                 }
             }
-            else if (cross_count == 6) {
-                if (gimbal_action(E_HIGH, 110, 110)) {
+            else if (cross_count == 8) {
+                if (gimbal_action(E_HIGH, SERVO_1_OPEN, SERVO_2_ROTATE)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 10) {
+                if (gimbal_action(E_LOW, SERVO_1_OPEN, SERVO_2_NORMAL)) {
                     mode = E_MODE_TRAIL_B;
                 }
             }
@@ -307,7 +321,7 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
 
         set_speed(vx, vy, rotate);
 
-        vofa::send(E_UART_1, mode, vx, vy, rotate, trail_data_front, trail_data_back, trail_timestamp_f, cross_count);
+        vofa::send(E_UART_1, servo1_angle, servo2_angle, cross_count);
 
         os::task::sleep(1);
     }

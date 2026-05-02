@@ -136,7 +136,7 @@ float debug;
     servo_angle_set(SERVO_1, 63);
     servo_angle_set(SERVO_2, 50);
 
-    // servo1 的夹取角度60以下，滚动角度78
+    // servo1 的夹取角度60以下，滚动角度110
     // servo2 的夹取角度50，滚动角度110
     while (true) {
         servo_angle_set(SERVO_1, servo1_angle);
