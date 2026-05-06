@@ -10,6 +10,8 @@
 #include "utils/os.h"
 #include "def.h"
 #include "bsp/uart.h"
+#include "rc/dr16.h"
+#include "rc/ht10.h"
 extern TIM_HandleTypeDef htim2;
 
 using namespace motor;
@@ -57,6 +59,7 @@ void lift_soft_init() {
 }
 
 float lift_get_soft_pos() {
+    // if 软零点为零 返回值即电机total_angle
     return static_cast<float>(lift.feedback.round) * 2 * fpi  + lift.feedback.angle - lift_state.zero;
 }
 
@@ -100,6 +103,28 @@ void lift_move_to(float target_pos) {
             }
             lift_finished = (lift_state.reaching_flag == 1);
         }
+        os::task::sleep(1);
+    }
+}
+[[noreturn]] void muanual_lift_task(void *args) {
+    lift.init();
+    auto rc = rc::dr16::data();
+    float target_pos = 0;
+    while (true) {
+        if (bsp_time_get_ms() - rc->timestamp > 100) {
+            target_pos = lift_get_soft_pos();
+            lift.clear();
+        } else {
+            // 防止误触
+            if (rc->s_r != 0) {
+                //TODO 调整合适的参数
+                target_pos += lift_get_soft_pos() + static_cast<float>(rc->rc_r[1]) / 660 * 3.0f;
+                lift_move_to(target_pos);
+            } else {
+                target_pos = lift_get_soft_pos();  // 电机target即电机总角度
+            }
+        }
+
         os::task::sleep(1);
     }
 }

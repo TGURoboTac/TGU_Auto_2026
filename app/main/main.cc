@@ -12,8 +12,15 @@
 #include "rc/ht10.h"
 #include "utils/os.h"
 
+/* ========================= 对抗赛与侦察赛模式切换 ======================== */
+#define AUTO_RUN   1
+
 extern void chassis_task(void *args);
+extern void manual_chassis_task(void *args);
+
 extern void lift_task(void *args);
+extern void manual_lift_task(void *args);
+
 extern void servo_task(void *args);
 extern void music_task(void *args);
 
@@ -31,7 +38,7 @@ extern "C" [[noreturn]] void app_entrance(void *args) {
 
     // logger::init(E_UART_1, logger::INFO);
     // terminal::init(E_UART_1, 921600);
-    // rc::dr16::init(E_UART_5);
+    rc::dr16::init(E_UART_5);
     // rc::ht10::init(E_UART_5);
 
     ins::init();
@@ -42,8 +49,14 @@ extern "C" [[noreturn]] void app_entrance(void *args) {
     bsp_buzzer_flash(4500, 0.2f, 75);
 
     // Init Application Tasks
+#if AUTO_RUN
     os::task::static_create(chassis_task, nullptr, "chassis", 1024, os::task::Priority::HIGH);
     os::task::static_create(lift_task, nullptr, "lift", 1024, os::task::Priority::HIGH);
+#else // AUTO_RUN
+    os::task::static_create(manual_chassis_task, nullptr,"fuck_chassis", 1024, os::task::Priority::HIGH);
+    os::task::static_create(manual_lift_task, nullptr, "fuck_lift", 1024, os::task::Priority::HIGH);
+#endif
+
     os::task::static_create(servo_task, nullptr, "servo", 256, os::task::Priority::HIGH);
     os::task::static_create(music_task, nullptr, "music", 256, os::task::Priority::HIGH);
     for (;;) {

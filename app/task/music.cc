@@ -5,7 +5,9 @@
 #include "def.h"
 #include "bsp/buzzer.h"
 #include "bsp/time.h"
+#include "motor/dji.h"
 #include "utils/os.h"
+#include "utils/vofa.h"
 
 #define MUSIC_BUZZER_DUTY   0.3f
 
@@ -158,13 +160,14 @@ void music_start() {
 [[noreturn]] void music_task(void *args) {
     // music_init();
     // music_start();
-
+    uint32_t cur_time = 0;
     while (true) {
         // music_tick();
-        if (cross_beep_req) {
-            cross_beep_req = false;
+        if (cross_beep_req and cur_time < 400) {
+            cross_beep_req = true, cur_time ++;
             bsp_buzzer_alarm(3000,0.2f);
-            os::task::sleep(400);
+        } else {
+            cross_beep_req = false, cur_time = 0;
             bsp_buzzer_quiet();
         }
         os::task::sleep(1);

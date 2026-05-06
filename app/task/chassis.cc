@@ -11,6 +11,7 @@
 #include "utils/vofa.h"
 #include "def.h"
 #include "bsp/buzzer.h"
+#include "rc/dr16.h"
 // 控制红蓝方的开关
 #define SIDE_RED
 
@@ -203,6 +204,7 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
     mode = E_MODE_TRAIL_F;
 
     while (true) {
+
         //强制停止
         if (cross_count >= 12) mode = E_MODE_DIED;
 
@@ -318,11 +320,35 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
             vx = 0; vy = 0; rotate = 0;
             break;
         }
-
         set_speed(vx, vy, rotate);
 
         vofa::send(E_UART_1, servo1_angle, servo2_angle, cross_count);
 
+        os::task::sleep(1);
+    }
+}
+
+[[noreturn]] void manual_chassis_task(void *args) {
+    m0.init(); m1.init(); m2.init(); m3.init();
+    float vx = 0, vy = 0, rotate = 0;
+    auto rc = rc::dr16::data();
+    while (true) {
+        // 离线保护
+        if (bsp_time_get_ms() - rc->timestamp > 100) {
+            vx = 0, vy = 0, rotate = 0;
+        } else {
+            // 底盘
+            vy = static_cast<float>(rc->rc_l[1]) / 10.f;
+            vx = static_cast<float>(rc->rc_l[0]) / 10.f;
+            rotate = static_cast<float>(rc->reserved) / 33.f;
+            // 遥控器死区
+            vy = (vy < 0.05f) ? 0.0f : vy;
+            vx = (vx < 0.05f) ? 0.0f : vx;
+
+        }
+        // vofa::send(E_UART_1, rc->mouse_l, rc->mouse_r, rc->mouse_x, rc->mouse_y, rc->mouse_z);
+
+        set_speed(vx, vy, rotate);
         os::task::sleep(1);
     }
 }
