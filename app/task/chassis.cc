@@ -332,19 +332,23 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
     m0.init(); m1.init(); m2.init(); m3.init();
     float vx = 0, vy = 0, rotate = 0;
     auto rc = rc::dr16::data();
+    // 图传
+    bsp_uart_set_baudrate(E_UART_1, 115200);
+    uint8_t data[] = { 0xA5, 0x01, 0x00, 0x00, 0x68, 0x01, 0x0F, 0x01, 0x8B, 0xBD };  // 信道1
     while (true) {
+        // 图传
+        bsp_uart_send_async(E_UART_1, data, sizeof(data));
         // 离线保护
         if (bsp_time_get_ms() - rc->timestamp > 100) {
             vx = 0, vy = 0, rotate = 0;
         } else {
             // 底盘
-            vy = static_cast<float>(rc->rc_l[1]) / 10.f;
-            vx = static_cast<float>(rc->rc_l[0]) / 10.f;
+            vy = static_cast<float>(rc->rc_l[1]) / 15.f;
+            vx = static_cast<float>(rc->rc_l[0]) / 15.f;
             rotate = static_cast<float>(rc->reserved) / 33.f;
             // 遥控器死区
             vy = (vy < 0.05f) ? 0.0f : vy;
             vx = (vx < 0.05f) ? 0.0f : vx;
-
         }
         // vofa::send(E_UART_1, rc->mouse_l, rc->mouse_r, rc->mouse_x, rc->mouse_y, rc->mouse_z);
 
