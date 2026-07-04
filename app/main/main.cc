@@ -13,7 +13,7 @@
 #include "utils/os.h"
 
 /* ========================= 对抗赛与侦察赛模式切换 ======================== */
-#define AUTO_RUN   1
+// #define AUTO_RUN   1
 
 extern void chassis_task(void *args);
 extern void manual_chassis_task(void *args);
