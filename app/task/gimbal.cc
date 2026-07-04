@@ -2,6 +2,7 @@
 // Created by JJ on 2026/4/1.
 //
 #include <cstdio>
+#include <algorithm>
 
 #include "bsp/tim.h"
 #include "bsp/time.h"
@@ -18,9 +19,9 @@ using namespace motor;
 controller::pid spd_pid(200, 0, 3, 3000, 10000);
 controller::pid po_pid(30, 0, 600, 0, 20);
 dji lift("m", dji::M2006,dji::param_t{.id = 1,.port = E_CAN_2,.mode = dji::CURRENT});
-
 constexpr float fpi = M_PI;
 static float measure_speed;
+
 typedef enum {
     SERVO_1,
     SERVO_2
@@ -43,6 +44,7 @@ void lift_soft_init() {
     if (lift.output < -1800 && fabsf(lift.feedback.current) > 1.8 && fabsf(lift.feedback.speed) < 1) {
         if (lift_state.stall_ms == 0)
             lift_state.stall_ms = bsp_time_get_ms();
+        // 可以修改阈值（堵转时间）
         if (bsp_time_get_ms() - lift_state.stall_ms > 50) {
             //判断到限位
             lift.update(0);
@@ -77,15 +79,16 @@ void lift_move_to(float target_pos) {
         lift_state.reaching_flag = 0;
     }
 }
-
+// auto mode
 [[noreturn]] void lift_task(void *args) {
     lift.init();
     os::task::sleep_seconds(1);
 
     while (lift_state.zero_flag != 1) {
         lift_soft_init();
-        os::task::sleep(1);
+        os::task::sleep(10);
     }
+    lift_mode = E_LOW; // 初始高度就是low
     while (true) {
         constexpr  float alpha = 0.09;
         measure_speed = (1 - alpha) * measure_speed + alpha * lift.feedback.speed;
@@ -96,49 +99,25 @@ void lift_move_to(float target_pos) {
         }
         else {
             if (lift_mode == E_HIGH) {
-                lift_move_to(25);
+                lift_move_to(38);
             }
             if (lift_mode == E_LOW) {
-                lift_move_to(0);
+                lift_move_to(15);
             }
             lift_finished = (lift_state.reaching_flag == 1);
         }
         os::task::sleep(1);
     }
 }
-[[noreturn]] void muanual_lift_task(void *args) {
-    lift.init();
-    auto rc = rc::dr16::data();
-    float target_pos = 0;
-    while (true) {
-        if (bsp_time_get_ms() - rc->timestamp > 100) {
-            target_pos = lift_get_soft_pos();
-            lift.clear();
-        } else {
-            // 防止误触
-            if (rc->s_r != 0) {
-                //TODO 调整合适的参数
-                target_pos += lift_get_soft_pos() + static_cast<float>(rc->rc_r[1]) / 660 * 3.0f;
-                lift_move_to(target_pos);
-            } else {
-                target_pos = lift_get_soft_pos();  // 电机target即电机总角度
-            }
-        }
-
-        os::task::sleep(1);
-    }
-}
 
 void servo_init() {
     bsp_tim_set(&htim2, 20000 - 1, 240 - 1);
-
-    bsp_tim_pwm_enable(&htim2,TIM_CHANNEL_1);
-    bsp_tim_pwm_enable(&htim2,TIM_CHANNEL_3);
+    bsp_tim_pwm_enable(&htim2,TIM_CHANNEL_1);              // 靠近接收器的
+    bsp_tim_pwm_enable(&htim2,TIM_CHANNEL_3);              // 远离接收器的
 }
 
 void servo_angle_set(servo_id_t id, float angle) {
-    // if (angle < 0) angle = 0;
-    // if (angle > 180) angle = 180;
+    angle = std::clamp(angle, 0.0f, 180.0f);
 
     float duty = 0.025f + (angle / 180.0f) * 0.1f;
 
@@ -151,21 +130,53 @@ void servo_angle_set(servo_id_t id, float angle) {
         break;
     }
 }
-float debug;
 [[noreturn]] void servo_task(void *args) {
     servo_init();
-    os::task::sleep_seconds(1);
-    bsp_uart_set_callback(E_UART_1, [](bsp_uart_e device, const uint8_t *data, size_t len) {
-        debug = data[1];
-    });
-    servo_angle_set(SERVO_1, 63);
-    servo_angle_set(SERVO_2, 50);
+    os::task::sleep(100);
+    servo_angle_set(SERVO_1, 63);// 63
+    servo_angle_set(SERVO_2, 50);// 50
 
     // servo1 的夹取角度60以下，滚动角度110
     // servo2 的夹取角度50，滚动角度110
     while (true) {
         servo_angle_set(SERVO_1, servo1_angle);
         servo_angle_set(SERVO_2, servo2_angle);
-        os::task::sleep(1);
+        os::task::sleep(20);
     }
 }
+
+[[noreturn]] void manual_servo_task(void *args) {
+    servo_init();
+    os::task::sleep(1);
+    auto rc = rc::dr16::data();
+    float angle = 85.f;
+    while (true) {
+        if (bsp_time_get_ms() - rc->timestamp > 100) {
+            servo_angle_set(SERVO_1, 85);
+            servo_angle_set(SERVO_2, 85);
+        } else {
+            // 保持上面状态
+            if (rc->s_l == 0) {
+                servo_angle_set(SERVO_1, 85);
+                servo_angle_set(SERVO_2, 85);
+            }
+            // 控制爪子
+            if (rc->s_l == 1) {
+                angle -= static_cast<float>(rc->reserved) / 660.f;
+                angle = std::clamp(angle, 74.0f, 130.0f);
+                servo_angle_set(SERVO_1, angle);
+            }
+            // 控制俯仰
+            if (rc->s_l == -1) {
+                angle -= static_cast<float>(rc->reserved) / 660.f;
+                angle = std::clamp(angle, 20.0f, 85.0f);
+                servo_angle_set(SERVO_2, angle);
+            }
+        }
+        os::task::sleep(10);
+
+    }
+}
+
+// 夹球的俯仰角85度时夹，向上抬升是角度变小
+// 夹爪的角度70到80为好

@@ -22,7 +22,7 @@ extern void lift_task(void *args);
 extern void manual_lift_task(void *args);
 
 extern void servo_task(void *args);
-extern void music_task(void *args);
+extern void manual_servo_task(void *args);
 
 extern "C" [[noreturn]] void app_entrance(void *args) {
     bsp_hw_init();
@@ -52,13 +52,12 @@ extern "C" [[noreturn]] void app_entrance(void *args) {
 #if AUTO_RUN
     os::task::static_create(chassis_task, nullptr, "chassis", 1024, os::task::Priority::HIGH);
     os::task::static_create(lift_task, nullptr, "lift", 1024, os::task::Priority::HIGH);
+    os::task::static_create(servo_task, nullptr, "servo", 256, os::task::Priority::HIGH);
 #else // AUTO_RUN
     os::task::static_create(manual_chassis_task, nullptr,"fuck_chassis", 1024, os::task::Priority::HIGH);
-    os::task::static_create(manual_lift_task, nullptr, "fuck_lift", 1024, os::task::Priority::HIGH);
+    os::task::static_create(manual_servo_task, nullptr,"fuck_servo", 256, os::task::Priority::HIGH);
 #endif
 
-    os::task::static_create(servo_task, nullptr, "servo", 256, os::task::Priority::HIGH);
-    os::task::static_create(music_task, nullptr, "music", 256, os::task::Priority::HIGH);
     for (;;) {
         bsp_led_set_hsv(static_cast<float>(bsp_time_get_ms() % 3000) / 3000.0f, 1.0f, 0.3f);
         bsp_iwdg_refresh();
