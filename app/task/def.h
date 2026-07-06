@@ -6,15 +6,15 @@
 #define TROBOT_DEF_H
 
 // 一些量的宏定义
-#define BRANCH_TIME 750       // 进入支路停止的时间
+#define BRANCH_TIME 800       // 进入支路停止的时间
 
 #define SERVO_1_OPEN 110      // 放置
-#define SERVO_1_CLOSE 63      //夹取
+#define SERVO_1_CLOSE 67      //夹取
 #define SERVO_2_NORMAL 50
 #define SERVO_2_ROTATE 110
 
 inline volatile bool lift_finished = false;
-inline volatile float servo1_angle = 63.0f, servo2_angle = 50.0f;
+inline volatile float servo1_angle = 67.0f, servo2_angle = 50.0f;
 // chassis
 typedef enum {
     E_MODE_WAIT,              //

@@ -40,8 +40,31 @@ dir_t route[] = {
     E_TURN_LEFT,    // 14 路口五出->反
     E_TURN_NONE,    // 15 路口四跳过
     E_TURN_LEFT,    // 16 路口三进         放置
-    E_TURN_LEFT,    // 17 路口三出->反
-
+    E_TURN_LEFT,    // 17 路口三出->正
+    E_TURN_NONE,    // 18 路口四跳过
+    E_TURN_NONE,    // 19 路口五跳过
+    E_TURN_LEFT,    // 20 路口六进入        夹取
+    E_TURN_LEFT,    // 21 路口六出->反
+    E_TURN_NONE,    // 22 路口五跳过
+    E_TURN_NONE,    // 23 路口四跳过
+    E_TURN_NONE,    // 24 路口三跳过
+    E_TURN_NONE,    // 25 路口二跳过
+    E_TURN_LEFT,    // 26 路口一进          diu
+    E_TURN_LEFT,    // 27 路口一出->正
+    E_TURN_NONE,    // 28 路口二跳过
+    E_TURN_NONE,    // 29 路口三跳过
+    E_TURN_NONE,    // 30 路口四跳过
+    E_TURN_NONE,    // 31 路口五跳过
+    E_TURN_NONE,    // 32 路口六跳过
+    E_TURN_LEFT,    // 33 路口七进          夹取
+    E_TURN_LEFT,    // 34 路口七出->反
+    E_TURN_NONE,    // 35 路口六跳过
+    E_TURN_NONE,    // 36 路口五跳过
+    E_TURN_NONE,    // 37 路口四跳过
+    E_TURN_NONE,    // 38 路口三跳过
+    E_TURN_NONE,    // 39 路口二跳过
+    E_TURN_LEFT,    // 40 路口一进           diu
+    E_TURN_NONE     //结束
 };
 mode_t mode = E_MODE_TRAIL_F;
 
@@ -142,7 +165,7 @@ void check_cross() {
     }
 
     if (is_cross) {
-        if (bsp_time_get_ms() - last_cross_time >1500 && ++cross_confirm > 3) {
+        if (bsp_time_get_ms() - last_cross_time >1000 && ++cross_confirm > 3) {
             last_cross_time = bsp_time_get_ms();
             cross_count ++; //路口书更新处
             cross_confirm = 0;
@@ -214,7 +237,7 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
     while (true) {
 
         //强制停止
-        if (cross_count >= 17) mode = E_MODE_DIED;
+        if (cross_count >= 41) mode = E_MODE_DIED;
 
         bool front_ok = bsp_time_get_ms() - trail_timestamp_f < 100;
         bool back_ok  = bsp_time_get_ms() - trail_timestamp_b < 100;
@@ -236,14 +259,23 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
                 }
             }
             // 进入分叉路口后前进的距离，由时间限制。进路口用
-            if (cross_count == 2 or cross_count == 6 or cross_count == 9 or cross_count == 13 or cross_count == 16)
+            if (cross_count == 2 or cross_count == 6 or cross_count == 9 or cross_count == 13 or cross_count == 16 or
+                cross_count == 20 or cross_count == 26 or cross_count == 33 or cross_count == 40)
                 if (bsp_time_get_ms() - state_time > BRANCH_TIME) {
                     stage = ACT_READY;
                     mode = E_MODE_ACTION;
                 }
-            // 在此添加在路口完成任务之前的高度，只能在出路口时调用
-            if (cross_count == 8 or cross_count == 15) {
+            // 在此添加在路口完成任务之前的高度，只能在出路口时调用     放置或丢弃之前
+            if (cross_count == 8 or cross_count == 15 or cross_count == 25 or cross_count == 39) {
                 lift_mode = E_HIGH;
+                if (cross_count == 25 or cross_count == 39) {
+                    servo2_angle = SERVO_2_ROTATE;
+                }
+            }
+            // 夹取之前
+            if (cross_count == 31) {
+                lift_mode = E_LOW;
+                servo2_angle = SERVO_2_NORMAL;
             }
             break;
 
@@ -289,6 +321,26 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
             }
             else if (cross_count == 16) {
                 if (gimbal_action(E_LOW, SERVO_1_OPEN, SERVO_2_NORMAL)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 20) {
+                if (gimbal_action(E_LOW, SERVO_1_CLOSE, SERVO_2_NORMAL)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 26) {
+                if (gimbal_action(E_HIGH, SERVO_1_OPEN, SERVO_2_ROTATE)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 33) {
+                if (gimbal_action(E_LOW, SERVO_1_CLOSE, SERVO_2_NORMAL)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 40) {
+                if (gimbal_action(E_HIGH, SERVO_1_OPEN, SERVO_2_ROTATE)) {
                     mode = E_MODE_TRAIL_B;
                 }
             }
