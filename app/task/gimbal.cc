@@ -145,46 +145,33 @@ void servo_angle_set(servo_id_t id, float angle) {
         os::task::sleep(20);
     }
 }
-controller::pid pid(200, 0, 3, 3000, 10000);
-dji test("mm", dji::M2006,dji::param_t{.id = 1,.port = E_CAN_1,.mode = dji::CURRENT});
-
 [[noreturn]] void manual_servo_task(void *args) {
     servo_init();
-    test.init();
     os::task::sleep(1);
     auto rc = rc::dr16::data();
     float angle1 = 85.f;
     float angle2 = 85.f;
     while (true) {
-        float output = pid.update(test.feedback.speed, 0);
-        test.update(output);
         if (bsp_time_get_ms() - rc->timestamp > 100) {
             servo_angle_set(SERVO_1, 85);
             servo_angle_set(SERVO_2, 85);
         } else {
-            // 保持上面状态
-            if (rc->s_l == 0) {
-                servo_angle_set(SERVO_1, 85);
-                servo_angle_set(SERVO_2, 85);
-            }
             // 控制爪子
             if (rc->s_l == 1) {
-                angle1 -= static_cast<float>(rc->reserved) / 660.f;
-                angle1 = std::clamp(angle1, 74.0f, 130.0f);
-                servo_angle_set(SERVO_1, angle1);
+                angle2 -= static_cast<float>(rc->reserved) / 660.f;
+                angle2 = std::clamp(angle2, 74.0f, 130.0f);
             }
             // 控制俯仰
             if (rc->s_l == -1) {
-                angle2 -= static_cast<float>(rc->reserved) / 660.f;
-                angle2 = std::clamp(angle2, 20.0f, 85.0f);
-                servo_angle_set(SERVO_2, angle2);
+                angle1 -= static_cast<float>(rc->reserved) / 660.f;
+                angle1 = std::clamp(angle1, 20.0f, 85.0f);
             }
+            servo_angle_set(SERVO_2, angle2);
+            servo_angle_set(SERVO_1, angle1);
         }
-        vofa::send(E_UART_1,40, test.feedback.speed, test.feedback.angle, output);
         os::task::sleep(10);
 
     }
 }
-
 // 夹球的俯仰角85度时夹，向上抬升是角度变小
 // 夹爪的角度70到80为好

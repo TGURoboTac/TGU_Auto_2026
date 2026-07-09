@@ -17,11 +17,11 @@ inline volatile bool lift_finished = false;
 inline volatile float servo1_angle = 67.0f, servo2_angle = 50.0f;
 // chassis
 typedef enum {
-    E_MODE_WAIT,              //
+    E_MODE_WAIT,               //
     E_MODE_DIED,
-    E_MODE_TRAIL_F,           // 循迹
+    E_MODE_TRAIL_F,            // 循迹
     E_MODE_TRAIL_B,
-    E_MODE_TURN,              // 原地旋转
+    E_MODE_TURN,               // 原地旋转
     E_MODE_FUCK_CROSS,         // 过路口后一段时间不考虑循迹往前走
     E_MODE_ACTION
 } mode_t;

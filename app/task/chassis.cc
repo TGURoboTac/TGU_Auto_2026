@@ -415,7 +415,9 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
             // 底盘
             vy = static_cast<float>(rc->rc_l[1]) / 20.f;
             vx = static_cast<float>(rc->rc_l[0]) / 20.f;
-            rotate = -static_cast<float>(rc->reserved) / 33.f;
+            if (rc->s_l == 0)
+                rotate = -static_cast<float>(rc->reserved) / 33.f;
+            else rotate = 0;
             // 遥控器死区
             vy = (fabsf(vy) < 0.1f) ? 0.0f : vy;
             vx = (fabsf(vx) < 0.1f) ? 0.0f : vx;

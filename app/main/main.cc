@@ -13,7 +13,7 @@
 #include "utils/os.h"
 
 /* ========================= 对抗赛与侦察赛模式切换 ======================== */
-#define AUTO_RUN   1
+// #define AUTO_RUN   1
 
 extern void chassis_task(void *args);
 extern void manual_chassis_task(void *args);
@@ -54,7 +54,7 @@ extern "C" [[noreturn]] void app_entrance(void *args) {
     os::task::static_create(lift_task, nullptr, "lift", 1024, os::task::Priority::HIGH);
     os::task::static_create(servo_task, nullptr, "servo", 256, os::task::Priority::HIGH);
 #else // AUTO_RUN
-    // os::task::static_create(manual_chassis_task, nullptr,"fuck_chassis", 1024, os::task::Priority::HIGH);
+    os::task::static_create(manual_chassis_task, nullptr,"fuck_chassis", 1024, os::task::Priority::HIGH);
     os::task::static_create(manual_servo_task, nullptr,"fuck_servo", 256, os::task::Priority::HIGH);
 #endif
 
