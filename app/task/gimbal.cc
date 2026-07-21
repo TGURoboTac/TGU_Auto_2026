@@ -89,14 +89,14 @@ void lift_move_to(float target_pos) {
         lift_soft_init();
         os::task::sleep(10);
     }
-    lift_mode = E_LOW; // 初始高度就是low
+    lift_mode = E_HIGH; // 初始高度就是low
     while (true) {
         constexpr  float alpha = 0.09;
         measure_speed = (1 - alpha) * measure_speed + alpha * lift.feedback.speed;
 
         if (bsp_time_get_ms() - lift.feedback.timestamp > 3) {
             spd_pid.clear();
-            lift.update(0);
+            lift.update(38);
         }
         else {
             if (lift_mode == E_HIGH) {
@@ -145,33 +145,3 @@ void servo_angle_set(servo_id_t id, float angle) {
         os::task::sleep(20);
     }
 }
-[[noreturn]] void manual_servo_task(void *args) {
-    servo_init();
-    os::task::sleep(1);
-    auto rc = rc::dr16::data();
-    float angle1 = 85.f;
-    float angle2 = 85.f;
-    while (true) {
-        if (bsp_time_get_ms() - rc->timestamp > 100) {
-            servo_angle_set(SERVO_1, 85);
-            servo_angle_set(SERVO_2, 85);
-        } else {
-            // 控制爪子
-            if (rc->s_l == 1) {
-                angle2 -= static_cast<float>(rc->reserved) / 660.f;
-                angle2 = std::clamp(angle2, 74.0f, 130.0f);
-            }
-            // 控制俯仰
-            if (rc->s_l == -1) {
-                angle1 -= static_cast<float>(rc->reserved) / 660.f;
-                angle1 = std::clamp(angle1, 20.0f, 85.0f);
-            }
-            servo_angle_set(SERVO_2, angle2);
-            servo_angle_set(SERVO_1, angle1);
-        }
-        os::task::sleep(10);
-
-    }
-}
-// 夹球的俯仰角85度时夹，向上抬升是角度变小
-// 夹爪的角度70到80为好

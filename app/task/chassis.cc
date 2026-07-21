@@ -11,10 +11,10 @@
 #include "utils/vofa.h"
 #include "def.h"
 #include "bsp/buzzer.h"
-#include "rc/dr16.h"
 #include "robomaster/robomaster.h"
 // 控制红蓝方的开关
-#define SIDE_RED
+// #define SIDE_RED
+#define BRANCH_TIME 1300      // 进入支路停止的时间
 
 typedef enum {
     E_TURN_LEFT,
@@ -25,45 +25,37 @@ typedef enum {
 dir_t route[] = {
     E_TURN_NONE,    // 0（起点）
     E_TURN_LEFT,    // 1 进入主路
-    E_TURN_RIGHT,   // 2 路口一进          放置
+    E_TURN_RIGHT,   // 2 路口一进          diu
     E_TURN_LEFT,    // 3 路口一出
     E_TURN_NONE,    // 4 路口二跳过
     E_TURN_NONE,    // 5 路口三跳过
     E_TURN_LEFT,    // 6 路口四进          夹取
     E_TURN_LEFT,    // 7 路口四出->反
-    E_TURN_NONE,    // 8 路口三跳过
-    E_TURN_LEFT,    // 9 路口二进          放置
-    E_TURN_LEFT,   // 10 路口二出->正
-    E_TURN_NONE,    // 11 路口三跳过
-    E_TURN_NONE,    // 12 路口四跳过
-    E_TURN_LEFT,    // 13 路口五进         夹取
-    E_TURN_LEFT,    // 14 路口五出->反
-    E_TURN_NONE,    // 15 路口四跳过
-    E_TURN_LEFT,    // 16 路口三进         放置
-    E_TURN_LEFT,    // 17 路口三出->正
-    E_TURN_NONE,    // 18 路口四跳过
-    E_TURN_NONE,    // 19 路口五跳过
-    E_TURN_LEFT,    // 20 路口六进入        夹取
-    E_TURN_LEFT,    // 21 路口六出->反
-    E_TURN_NONE,    // 22 路口五跳过
-    E_TURN_NONE,    // 23 路口四跳过
-    E_TURN_NONE,    // 24 路口三跳过
-    E_TURN_NONE,    // 25 路口二跳过
-    E_TURN_LEFT,    // 26 路口一进          diu
-    E_TURN_LEFT,    // 27 路口一出->正
-    E_TURN_NONE,    // 28 路口二跳过
-    E_TURN_NONE,    // 29 路口三跳过
-    E_TURN_NONE,    // 30 路口四跳过
-    E_TURN_NONE,    // 31 路口五跳过
-    E_TURN_NONE,    // 32 路口六跳过
-    E_TURN_LEFT,    // 33 路口七进          夹取
-    E_TURN_LEFT,    // 34 路口七出->反
-    E_TURN_NONE,    // 35 路口六跳过
-    E_TURN_NONE,    // 36 路口五跳过
-    E_TURN_NONE,    // 37 路口四跳过
-    E_TURN_NONE,    // 38 路口三跳过
-    E_TURN_NONE,    // 39 路口二跳过
-    E_TURN_LEFT,    // 40 路口一进           diu
+    E_TURN_LEFT,    // 8 路口三进          diu
+    E_TURN_LEFT,    // 9 路口三出->正
+    E_TURN_NONE,    // 10 路口四跳过
+    E_TURN_LEFT,    // 11 路口五进         夹取
+    E_TURN_LEFT,    // 12 路口五出->反
+    E_TURN_NONE,    // 13 路口四跳过
+    E_TURN_LEFT,    // 14 路口三进         diu
+    E_TURN_LEFT,    // 15 路口三出->正
+    E_TURN_NONE,    // 16 路口四跳过
+    E_TURN_NONE,    // 17 路口五跳过
+    E_TURN_LEFT,    // 18 路口六进入        夹取
+    E_TURN_LEFT,    // 19 路口六出->反
+    E_TURN_NONE,    // 20 路口五跳过
+    E_TURN_NONE,    // 21 路口四跳过
+    E_TURN_LEFT,    // 22 路口三进入        diu
+    E_TURN_LEFT,    // 23 路口三出->正
+    E_TURN_NONE,    // 24 路口四跳过
+    E_TURN_NONE,    // 25 路口五跳过
+    E_TURN_NONE,    // 26 路口六跳过
+    E_TURN_LEFT,    // 27 路口七进          夹取
+    E_TURN_LEFT,    // 28 路口七出->反
+    E_TURN_NONE,    // 29 路口六跳过
+    E_TURN_NONE,    // 30 路口五跳过
+    E_TURN_NONE,    // 31 路口四跳过
+    E_TURN_LEFT,    // 32 路口三进           diu
     E_TURN_NONE     //结束
 };
 mode_t mode = E_MODE_TRAIL_F;
@@ -73,7 +65,7 @@ motor::gyj m1("m1", {.id = 0x01,.port = E_CAN_1,.mode = motor::gyj::SPEED_LOOP,.
 motor::gyj m2("m2", {.id = 0x02,.port = E_CAN_1,.mode = motor::gyj::SPEED_LOOP,.have_feedback = false}, 1);
 motor::gyj m3("m3", {.id = 0x03,.port = E_CAN_1,.mode = motor::gyj::SPEED_LOOP,.have_feedback = false}, 1);
 
-controller::pid angle_pid(20, 1, 0, 5, 20);    // 转弯角速度环
+controller::pid angle_pid(15, 1, 0, 5, 20);    // 转弯角速度环
 controller::pid trail_pid(2.5, 0, 0.1, 0, 8);  // 循迹纠偏
 
 constexpr float fpi = M_PI;
@@ -115,7 +107,7 @@ void trail_mode(float &vx, float &vy, float &rotate) {
         vy = 12; rotate = trail_pid.update(trail_err, 0.0f);
     }
     if (mode == E_MODE_TRAIL_B) {
-        vy = -15; rotate = -trail_pid.update(trail_err, 0.0f);
+        vy = -13; rotate = -trail_pid.update(trail_err, 0.0f);
     }
 }
 
@@ -124,7 +116,7 @@ void turn_mode(float &vx, float &vy, float &rotate) {
     vx = 0;
     vy = 0;
     rotate = turn_speed;
-    if (fabs(ins::data()->yaw_total_angle - aim_angle) < 0.05f) {
+    if (fabs(ins::data()->yaw_total_angle - aim_angle) < 0.03f) {
         rotate = 0;
         turn_finished = true;
     }
@@ -165,9 +157,9 @@ void check_cross() {
     }
 
     if (is_cross) {
-        if (bsp_time_get_ms() - last_cross_time >1000 && ++cross_confirm > 3) {
+        if (bsp_time_get_ms() - last_cross_time >1000 && ++cross_confirm > 5) {
             last_cross_time = bsp_time_get_ms();
-            cross_count ++; //路口书更新处
+            cross_count ++; //路口处更新
             cross_confirm = 0;
         }
     }else cross_confirm = 0;
@@ -234,10 +226,19 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
     dir_t current_turn = E_TURN_NONE;
     mode = E_MODE_TRAIL_F;
 
+    os::task::sleep_seconds(2);
+    uint32_t start_timestamp = bsp_time_get_ms();
     while (true) {
-
-        //强制停止
-        if (cross_count >= 41) mode = E_MODE_DIED;
+        // m0.disable(), m1.disable(), m2.disable(), m3.disable();
+        if (bsp_time_get_ms() - start_timestamp < 1000) {
+            set_speed(0, 8, 0);
+            cross_count = 0;
+        }
+        else {
+            //强制停止
+        if (cross_count >= 33) {
+            mode = E_MODE_DIED;
+        }
 
         bool front_ok = bsp_time_get_ms() - trail_timestamp_f < 100;
         bool back_ok  = bsp_time_get_ms() - trail_timestamp_b < 100;
@@ -259,21 +260,19 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
                 }
             }
             // 进入分叉路口后前进的距离，由时间限制。进路口用
-            if (cross_count == 2 or cross_count == 6 or cross_count == 9 or cross_count == 13 or cross_count == 16 or
-                cross_count == 20 or cross_count == 26 or cross_count == 33 or cross_count == 40)
+            if (cross_count == 2 or cross_count == 6 or cross_count == 8 or cross_count == 11 or cross_count == 14 or
+                cross_count == 18 or cross_count == 22 or cross_count == 27 or cross_count == 32)
                 if (bsp_time_get_ms() - state_time > BRANCH_TIME) {
                     stage = ACT_READY;
                     mode = E_MODE_ACTION;
                 }
             // 在此添加在路口完成任务之前的高度，只能在出路口时调用     放置或丢弃之前
-            if (cross_count == 8 or cross_count == 15 or cross_count == 25 or cross_count == 39) {
+            if (cross_count == 1 or cross_count == 7 or cross_count == 12 or cross_count == 20 or cross_count == 30) {
                 lift_mode = E_HIGH;
-                if (cross_count == 25 or cross_count == 39) {
-                    servo2_angle = SERVO_2_ROTATE;
-                }
+                servo2_angle = SERVO_2_ROTATE;
             }
             // 夹取之前
-            if (cross_count == 31) {
+            if (cross_count == 4 or cross_count == 9 or cross_count == 16 or cross_count == 25) {
                 lift_mode = E_LOW;
                 servo2_angle = SERVO_2_NORMAL;
             }
@@ -300,7 +299,7 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
             vx = 0; vy = 0; rotate = 0;
 
             if (cross_count == 2) {
-                if (gimbal_action(E_LOW, SERVO_1_OPEN, SERVO_2_NORMAL)) {
+                if (gimbal_action(E_HIGH, SERVO_1_OPEN, SERVO_2_ROTATE)) {
                     mode = E_MODE_TRAIL_B;
                 }
             }
@@ -309,37 +308,37 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
                     mode = E_MODE_TRAIL_B;
                 }
             }
-            else if (cross_count == 9) {
-                if (gimbal_action(E_LOW, SERVO_1_OPEN, SERVO_2_NORMAL)) {
-                    mode = E_MODE_TRAIL_B;
-                }
-            }
-            else if (cross_count == 13) {
-                if (gimbal_action(E_LOW, SERVO_1_CLOSE, SERVO_2_NORMAL)) {
-                    mode = E_MODE_TRAIL_B;
-                }
-            }
-            else if (cross_count == 16) {
-                if (gimbal_action(E_LOW, SERVO_1_OPEN, SERVO_2_NORMAL)) {
-                    mode = E_MODE_TRAIL_B;
-                }
-            }
-            else if (cross_count == 20) {
-                if (gimbal_action(E_LOW, SERVO_1_CLOSE, SERVO_2_NORMAL)) {
-                    mode = E_MODE_TRAIL_B;
-                }
-            }
-            else if (cross_count == 26) {
+            else if (cross_count == 8) {
                 if (gimbal_action(E_HIGH, SERVO_1_OPEN, SERVO_2_ROTATE)) {
                     mode = E_MODE_TRAIL_B;
                 }
             }
-            else if (cross_count == 33) {
+            else if (cross_count == 11) {
                 if (gimbal_action(E_LOW, SERVO_1_CLOSE, SERVO_2_NORMAL)) {
                     mode = E_MODE_TRAIL_B;
                 }
             }
-            else if (cross_count == 40) {
+            else if (cross_count == 14) {
+                if (gimbal_action(E_HIGH, SERVO_1_OPEN, SERVO_2_ROTATE)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 18) {
+                if (gimbal_action(E_LOW, SERVO_1_CLOSE, SERVO_2_NORMAL)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 22) {
+                if (gimbal_action(E_HIGH, SERVO_1_OPEN, SERVO_2_ROTATE)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 27) {
+                if (gimbal_action(E_LOW, SERVO_1_CLOSE, SERVO_2_NORMAL)) {
+                    mode = E_MODE_TRAIL_B;
+                }
+            }
+            else if (cross_count == 32) {
                 if (gimbal_action(E_HIGH, SERVO_1_OPEN, SERVO_2_ROTATE)) {
                     mode = E_MODE_TRAIL_B;
                 }
@@ -385,46 +384,9 @@ bool gimbal_action(lift_t target_lift, float target_servo1, float target_servo2)
         }
         set_speed(vx, vy, rotate);
 
-        vofa::send(E_UART_1,mode, stage, servo1_angle, servo2_angle, cross_count);
+        vofa::send(E_UART_1, bsp_time_get_ms(), cross_count);
 
         os::task::sleep(1);
     }
-}
-
-[[noreturn]] void manual_chassis_task(void *args) {
-    m0.init(); m1.init(); m2.init(); m3.init();
-    float vx = 0, vy = 0, rotate = 0;
-    auto rc = rc::dr16::data();
-
-    // 图传
-    bsp_uart_set_baudrate(E_UART_1, 115200);
-    auto vision_set = [](const uint8_t &x) {
-        robomaster::transmit(E_UART_1, 0x0f01, &x, 1);
-    };
-
-    vision_set(1);
-
-    while (true) {
-        if (rc->s_r == 1) {
-            bsp_sys_reset();
         }
-        // 离线保护
-        if (bsp_time_get_ms() - rc->timestamp > 100) {
-            vx = 0, vy = 0, rotate = 0;
-        } else {
-            // 底盘
-            vy = static_cast<float>(rc->rc_l[1]) / 20.f;
-            vx = static_cast<float>(rc->rc_l[0]) / 20.f;
-            if (rc->s_l == 0)
-                rotate = -static_cast<float>(rc->reserved) / 33.f;
-            else rotate = 0;
-            // 遥控器死区
-            vy = (fabsf(vy) < 0.1f) ? 0.0f : vy;
-            vx = (fabsf(vx) < 0.1f) ? 0.0f : vx;
-        }
-        // vofa::send(E_UART_1, rc->mouse_l, rc->mouse_r, rc->mouse_x, rc->mouse_y, rc->mouse_z);
-        // vofa::send(E_UART_1, ins->raw.gyro[0], ins->raw.gyro[1], ins->raw.gyro[2], ins->yaw, ins->yaw_total_angle);
-        set_speed(vx, vy, rotate);
-        os::task::sleep(1);
-    }
 }

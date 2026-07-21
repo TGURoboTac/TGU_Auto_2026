@@ -6,8 +6,6 @@
 #define TROBOT_DEF_H
 
 // 一些量的宏定义
-#define BRANCH_TIME 800       // 进入支路停止的时间
-
 #define SERVO_1_OPEN 110      // 放置
 #define SERVO_1_CLOSE 67      //夹取
 #define SERVO_2_NORMAL 50
